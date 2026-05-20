@@ -228,6 +228,54 @@ app.patch("/tutors/:id", async (req, res) => {
   }
 });
 
+// ==================================================
+// DELETE TUTOR API
+// ==================================================
+
+app.delete("/tutors/:id", async (req, res) => {
+
+  try {
+
+    const id = req.params.id;
+
+    // Validate MongoDB ID
+    if (!ObjectId.isValid(id)) {
+
+      return res.status(400).send({
+        message: "Invalid Tutor ID",
+      });
+    }
+
+    const query = {
+      _id: new ObjectId(id),
+    };
+
+    const result =
+      await tutorsCollection.deleteOne(query);
+
+    // যদি কোনো tutor না পাওয়া যায়
+    if (result.deletedCount === 0) {
+
+      return res.status(404).send({
+        message: "Tutor not found",
+      });
+    }
+
+    res.send({
+      success: true,
+      message: "Tutor deleted successfully",
+      result,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      message: "Failed to delete tutor",
+    });
+  }
+});
 
     // ==================================================
     // GET 6 FEATURED TUTORS
