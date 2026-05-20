@@ -140,6 +140,94 @@ async function run() {
   }
 });
 
+// ==================================================
+// UPDATE TUTOR API
+// ==================================================
+
+app.patch("/tutors/:id", async (req, res) => {
+
+  try {
+
+    const id = req.params.id;
+
+    const updatedTutor = req.body;
+
+    // Validate MongoDB ID
+    if (!ObjectId.isValid(id)) {
+
+      return res.status(400).send({
+        message: "Invalid Tutor ID",
+      });
+    }
+
+    const filter = {
+      _id: new ObjectId(id),
+    };
+
+    const updatedDoc = {
+      $set: {
+
+        tutorName:
+          updatedTutor.tutorName,
+
+        photo:
+          updatedTutor.photo,
+
+        subject:
+          updatedTutor.subject,
+
+        availableDays:
+          updatedTutor.availableDays,
+
+        availableTime:
+          updatedTutor.availableTime,
+
+        hourlyFee:
+          parseInt(
+            updatedTutor.hourlyFee
+          ),
+
+        totalSlot:
+          parseInt(
+            updatedTutor.totalSlot
+          ),
+
+        sessionStartDate:
+          updatedTutor.sessionStartDate,
+
+        institution:
+          updatedTutor.institution,
+
+        experience:
+          updatedTutor.experience,
+
+        location:
+          updatedTutor.location,
+
+        teachingMode:
+          updatedTutor.teachingMode,
+      },
+    };
+
+    const result =
+      await tutorsCollection.updateOne(
+        filter,
+        updatedDoc
+      );
+
+    res.send(result);
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      message:
+        "Failed to update tutor",
+    });
+  }
+});
+
 
     // ==================================================
     // GET 6 FEATURED TUTORS
