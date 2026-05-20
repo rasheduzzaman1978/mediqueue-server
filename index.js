@@ -277,6 +277,178 @@ app.delete("/tutors/:id", async (req, res) => {
   }
 });
 
+// ==================================================
+// CREATE BOOKING API
+// ==================================================
+
+app.post("/bookings", async (req, res) => {
+
+  try {
+
+    const bookingData = req.body;
+
+    const tutorId = bookingData.tutorId;
+
+    // ==========================================
+    // VALIDATE TUTOR ID
+    // ==========================================
+
+    if (!ObjectId.isValid(tutorId)) {
+
+      return res.status(400).send({
+        success: false,
+        message: "Invalid Tutor ID",
+      });
+    }
+
+    // ==========================================
+    // FIND TUTOR
+    // ==========================================
+
+    const tutor =
+      await tutorsCollection.findOne({
+        _id: new ObjectId(tutorId),
+      });
+
+    // Tutor not found
+    if (!tutor) {
+
+      return res.status(404).send({
+        success: false,
+        message: "Tutor not found",
+      });
+    }
+
+    // ==========================================
+    // SLOT CHECK
+    // ==========================================
+
+    if (tutor.totalSlot <= 0) {
+
+      return res.send({
+        success: false,
+        message:
+          "This session is fully booked. You can’t join at the moment.",
+      });
+    }
+
+    // ==========================================
+    // SESSION DATE CHECK
+    // ==========================================
+
+    const today = new Date();
+
+    const sessionDate = new Date(
+      tutor.sessionStartDate
+    );
+
+    // আজকের date যদি session date এর আগে হয়
+    if (today < sessionDate) {
+
+      return res.send({
+        success: false,
+        message:
+          "Booking is not available yet for this tutor",
+      });
+    }
+
+    // ==========================================
+    // CHECK DUPLICATE BOOKING
+    // ==========================================
+
+    const alreadyBooked =
+      await bookingsCollection.findOne({
+        tutorId:
+          bookingData.tutorId,
+
+        studentEmail:
+          bookingData.studentEmail,
+      });
+
+    if (alreadyBooked) {
+
+      return res.send({
+        success: false,
+        message:
+          "You already booked this tutor",
+      });
+    }
+
+    // ==========================================
+    // CREATE BOOKING OBJECT
+    // ==========================================
+
+    const newBooking = {
+
+      studentName:
+        bookingData.studentName,
+
+      phone:
+        bookingData.phone,
+
+      tutorId:
+        bookingData.tutorId,
+
+      tutorName:
+        bookingData.tutorName,
+
+      studentEmail:
+        bookingData.studentEmail,
+
+      bookingStatus:
+        "confirmed",
+
+      createdAt:
+        new Date(),
+    };
+
+    // ==========================================
+    // SAVE BOOKING
+    // ==========================================
+
+    const bookingResult =
+      await bookingsCollection.insertOne(
+        newBooking
+      );
+
+    // ==========================================
+    // AUTO DECREASE SLOT
+    // ==========================================
+
+    await tutorsCollection.updateOne(
+      {
+        _id: new ObjectId(tutorId),
+      },
+      {
+        $inc: {
+          totalSlot: -1,
+        },
+      }
+    );
+
+    // ==========================================
+    // SUCCESS RESPONSE
+    // ==========================================
+
+    res.send({
+      success: true,
+      message:
+        "Booking successful",
+      bookingResult,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message:
+        "Failed to create booking",
+    });
+  }
+});
+
     // ==================================================
     // GET 6 FEATURED TUTORS
     // ==================================================
