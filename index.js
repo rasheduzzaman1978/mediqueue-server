@@ -1,3 +1,5 @@
+// index.js
+
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -7,6 +9,7 @@ dotenv.config();
 const {
   MongoClient,
   ServerApiVersion,
+  ObjectId,
 } = require("mongodb");
 
 const app = express();
@@ -53,11 +56,11 @@ async function run() {
     // ================= DATABASE =================
 
     const tutorsCollection = client
-      .db("medequeue")
+      .db("mediqueue")
       .collection("tutors");
 
     const bookingsCollection = client
-      .db("medequeue")
+      .db("mediqueue")
       .collection("bookings");
 
 
@@ -91,6 +94,51 @@ async function run() {
 
       res.send(result);
     });
+
+
+    // ==================================================
+    // GET SINGLE TUTOR
+    // ==================================================
+
+    app.get("/tutors/:id", async (req, res) => {
+  try {
+
+    const id = req.params.id;
+
+    // Validate MongoDB ObjectId
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
+        message: "Invalid tutor ID",
+      });
+    }
+
+    const query = {
+      _id: new ObjectId(id),
+    };
+
+    const result =
+      await tutorsCollection.findOne(
+        query
+      );
+
+    if (!result) {
+      return res.status(404).send({
+        message: "Tutor not found",
+      });
+    }
+
+    res.send(result);
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      message:
+        "Failed to fetch tutor",
+    });
+  }
+});
 
 
     // ==================================================
