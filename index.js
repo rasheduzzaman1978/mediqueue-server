@@ -53,7 +53,7 @@ async function run() {
   try {
 
     // MongoDB Connect
-    await client.connect();
+    // await client.connect();
 
     console.log(
       "Successfully connected to MongoDB!"
@@ -707,9 +707,7 @@ if (
     // MONGODB PING
     // ==================================================
 
-    await client
-      .db("admin")
-      .command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
@@ -726,14 +724,16 @@ run().catch(console.dir);
 // ================= ROOT ROUTE =================
 
 app.get("/", (req, res) => {
-  res.send("TutorQueue Server Running");
+  res.send("Mediqueue Server Running");
 });
 
 
 // ================= SERVER =================
 
-app.listen(PORT, () => {
-  console.log(
-    `Server is running on port ${PORT}`
-  );
-});
+// app.listen(PORT, () => {
+//   console.log(
+//     `Server is running on port ${PORT}`
+//   );
+// });
+
+module.exports = app;
