@@ -128,169 +128,42 @@ async function run() {
     );
 
     // ==================================================
-    // GET ALL TUTORS
-    // ==================================================
+// GET ALL TUTORS
+// ==================================================
 
-    app.get(
-      "/tutors",
-      async (req, res) => {
-
-        try {
-
-          const result =
-            await tutorsCollection
-              .find()
-              .toArray();
-
-          res.send(result);
-
-        } catch (error) {
-
-          console.log(error);
-
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to fetch tutors",
-            });
-        }
-      }
-    );
-
-    // ==================================================
-    // GET SINGLE TUTOR
-    // ==================================================
-
-    app.get(
-      "/tutors/:id",
-      async (req, res) => {
-
-        try {
-
-          const id =
-            req.params.id;
-
-          if (
-            !ObjectId.isValid(id)
-          ) {
-
-            return res
-              .status(400)
-              .send({
-                success:
-                  false,
-                message:
-                  "Invalid Tutor ID",
-              });
-          }
-
-          const query = {
-            _id: new ObjectId(
-              id
-            ),
-          };
-
-          const result =
-            await tutorsCollection.findOne(
-              query
-            );
-
-          if (!result) {
-
-            return res
-              .status(404)
-              .send({
-                success:
-                  false,
-                message:
-                  "Tutor not found",
-              });
-          }
-
-          res.send(result);
-
-        } catch (error) {
-
-          console.log(error);
-
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to fetch tutor",
-            });
-        }
-      }
-    );
-
-    // ==================================================
-    // UPDATE TUTOR API
-    // ==================================================
-
-app.patch(
-  "/tutors/:id",
+app.get(
+  "/tutors",
   async (req, res) => {
 
     try {
 
-      const id =
-        req.params.id;
+      // CATEGORY QUERY
+      const category =
+        req.query.category;
 
-      if (
-        !ObjectId.isValid(id)
-      ) {
+      console.log(
+        "Category:",
+        category
+      );
 
-        return res
-          .status(400)
-          .send({
-            success: false,
-            message:
-              "Invalid Tutor ID",
-          });
+      // DYNAMIC FILTER
+      const query = {};
+
+      // CATEGORY FILTER
+      if (category) {
+
+        query.subject = {
+          $regex: category,
+          $options: "i",
+        };
       }
 
-      const updatedTutor =
-        req.body;
-
-      // REMOVE _id
-      delete updatedTutor._id;
-
-      const filter = {
-        _id: new ObjectId(id),
-      };
-
-      const updatedDoc = {
-        $set: {
-
-          ...updatedTutor,
-
-          hourlyFee:
-            parseInt(
-              updatedTutor.hourlyFee
-            ),
-
-          totalSlot:
-            parseInt(
-              updatedTutor.totalSlot
-            ),
-        },
-      };
-
       const result =
-        await tutorsCollection.updateOne(
-          filter,
-          updatedDoc
-        );
+        await tutorsCollection
+          .find(query)
+          .toArray();
 
-      res.send({
-        success: true,
-        message:
-          "Tutor updated successfully",
-        result,
-      });
+      res.send(result);
 
     } catch (error) {
 
@@ -301,11 +174,87 @@ app.patch(
         .send({
           success: false,
           message:
-            "Failed to update tutor",
+            "Failed to fetch tutors",
         });
     }
   }
 );
+
+    // ==================================================
+    // GET SINGLE TUTOR
+    // ==================================================
+
+    app.get("/tutors", async (req, res) => {
+
+  try {
+
+    const category =
+      req.query.category;
+
+    const query = {};
+
+    if (category) {
+
+      query.subject =
+        category;
+    }
+
+    const result =
+      await tutorsCollection
+        .find(query)
+        .toArray();
+
+    res.send(result);
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message:
+        "Failed to fetch tutors",
+    });
+  }
+});
+
+    // ==================================================
+    // UPDATE TUTOR API
+    // ==================================================
+
+app.get("/tutors", async (req, res) => {
+
+  try {
+
+    const category =
+      req.query.category;
+
+    const query = {};
+
+    if (category) {
+
+      query.subject =
+        category;
+    }
+
+    const result =
+      await tutorsCollection
+        .find(query)
+        .toArray();
+
+    res.send(result);
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message:
+        "Failed to fetch tutors",
+    });
+  }
+});
 
     // ==================================================
     // DELETE TUTOR API
