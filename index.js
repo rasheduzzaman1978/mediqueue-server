@@ -19,7 +19,14 @@ const PORT = process.env.PORT || 5000;
 
 // ================= MIDDLEWARE =================
 
-app.use(cors());
+app.use(
+  cors({
+    origin:
+      "http://localhost:3000",
+
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
@@ -70,16 +77,42 @@ async function run() {
 
     app.post("/tutors", async (req, res) => {
 
-      const tutorData = req.body;
+  try {
 
-      const result =
-        await tutorsCollection.insertOne(
-          tutorData
-        );
+    const tutorData = {
 
-      res.send(result);
+      ...req.body,
+
+      hourlyFee: parseInt(
+        req.body.hourlyFee
+      ),
+
+      totalSlot: parseInt(
+        req.body.totalSlot
+      ),
+    };
+
+    const result =
+      await tutorsCollection.insertOne(
+        tutorData
+      );
+
+    res.send({
+      success: true,
+      result,
     });
 
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message:
+        "Failed to add tutor",
+    });
+  }
+});
 
     // ==================================================
     // GET ALL TUTORS
@@ -323,7 +356,11 @@ app.post("/bookings", async (req, res) => {
     // SLOT CHECK
     // ==========================================
 
-    if (tutor.totalSlot <= 0) {
+   if (
+  parseInt(
+    tutor.totalSlot
+  ) <= 0
+) {
 
       return res.send({
         success: false,
@@ -338,9 +375,18 @@ app.post("/bookings", async (req, res) => {
 
     const today = new Date();
 
-    const sessionDate = new Date(
-      tutor.sessionStartDate
-    );
+today.setHours(0, 0, 0, 0);
+
+const sessionDate = new Date(
+  tutor.sessionStartDate
+);
+
+sessionDate.setHours(
+  0,
+  0,
+  0,
+  0
+);
 
     // আজকের date যদি session date এর আগে হয়
     if (today < sessionDate) {
@@ -357,13 +403,17 @@ app.post("/bookings", async (req, res) => {
     // ==========================================
 
     const alreadyBooked =
-      await bookingsCollection.findOne({
-        tutorId:
-          bookingData.tutorId,
+  await bookingsCollection.findOne({
 
-        studentEmail:
-          bookingData.studentEmail,
-      });
+    tutorName:
+      bookingData.tutorName,
+
+    studentEmail:
+      bookingData.studentEmail,
+
+    bookingStatus:
+      "confirmed",
+  });
 
     if (alreadyBooked) {
 
@@ -445,6 +495,191 @@ app.post("/bookings", async (req, res) => {
       success: false,
       message:
         "Failed to create booking",
+    });
+  }
+});
+
+// ==================================================
+// GET MY TUTORS API
+// ==================================================
+
+app.get("/my-tutors", async (req, res) => {
+
+  try {
+
+    const email = req.query.email;
+
+    const query = {};
+
+    if (email) {
+
+      query.creatorEmail =
+        email;
+    }
+
+    const result =
+      await tutorsCollection
+        .find(query)
+        .sort({ _id: -1 })
+        .toArray();
+
+    res.send(result);
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      message:
+        "Failed to fetch tutors",
+    });
+  }
+});
+
+// ==================================================
+// GET USER BOOKINGS API
+// ==================================================
+
+app.get("/bookings", async (req, res) => {
+
+  try {
+
+    const email = req.query.email;
+
+    const query = {};
+
+    if (email) {
+
+      query.studentEmail =
+        email;
+    }
+
+    const result =
+      await bookingsCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .toArray();
+
+    res.send(result);
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      message:
+        "Failed to fetch bookings",
+    });
+  }
+});
+
+// ==================================================
+// CANCEL BOOKING API
+// ==================================================
+
+app.patch("/bookings/:id", async (req, res) => {
+
+  try {
+
+    const id = req.params.id;
+
+    // ================= VALIDATE ID =================
+
+    if (!ObjectId.isValid(id)) {
+
+      return res.status(400).send({
+        success: false,
+        message:
+          "Invalid Booking ID",
+      });
+    }
+
+    // ================= FIND BOOKING =================
+
+    const booking =
+      await bookingsCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
+    // Booking not found
+    if (!booking) {
+
+      return res.status(404).send({
+        success: false,
+        message:
+          "Booking not found",
+      });
+    }
+
+    // Already cancelled
+    if (
+      booking.bookingStatus ===
+      "cancelled"
+    ) {
+
+      return res.send({
+        success: false,
+        message:
+          "Booking already cancelled",
+      });
+    }
+
+    // ================= UPDATE BOOKING STATUS =================
+
+    const result =
+      await bookingsCollection.updateOne(
+        {
+          _id: new ObjectId(id),
+        },
+        {
+          $set: {
+            bookingStatus:
+              "cancelled",
+          },
+        }
+      );
+
+    // ================= RETURN SLOT =================
+
+// Only if tutorId exists and valid
+if (
+  booking.tutorId &&
+  ObjectId.isValid(
+    booking.tutorId
+  )
+) {
+
+  await tutorsCollection.updateOne(
+    {
+      _id: new ObjectId(
+        booking.tutorId
+      ),
+    },
+    {
+      $inc: {
+        totalSlot: 1,
+      },
+    }
+  );
+}
+
+    // ================= SUCCESS RESPONSE =================
+
+    res.send({
+      success: true,
+      message:
+        "Booking cancelled successfully",
+      result,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message:
+        "Failed to cancel booking",
     });
   }
 });
