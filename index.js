@@ -54,7 +54,7 @@ async function run() {
 
   try {
 
-    await client.connect();
+  
 
     console.log(
       "Successfully connected to MongoDB!"
@@ -930,11 +930,11 @@ run().catch(console.dir);
 
 // ================= SERVER =================
 
-// app.listen(PORT, () => {
+app.listen(PORT, () => {
 
-//   console.log(
-//     `Server running on port ${PORT}`
-//   );
-// });
+  console.log(
+    `Server running on port ${PORT}`
+  );
+});
 
 module.exports = app;
