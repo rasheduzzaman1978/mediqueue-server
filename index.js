@@ -97,6 +97,9 @@ async function run() {
                 req.body
                   .totalSlot
               ),
+
+            createdAt:
+              new Date(),
           };
 
           const result =
@@ -128,133 +131,176 @@ async function run() {
     );
 
     // ==================================================
-// GET ALL TUTORS
-// ==================================================
+    // GET ALL TUTORS
+    // ==================================================
 
-app.get(
-  "/tutors",
-  async (req, res) => {
+    app.get(
+      "/tutors",
+      async (req, res) => {
 
-    try {
+        try {
 
-      // CATEGORY QUERY
-      const category =
-        req.query.category;
+          // ================= QUERY PARAMS =================
 
-      console.log(
-        "Category:",
-        category
-      );
+          const category =
+            req.query.category;
 
-      // DYNAMIC FILTER
-      const query = {};
+          const search =
+            req.query.search;
 
-      // CATEGORY FILTER
-      if (category) {
+          const startDate =
+            req.query.startDate;
 
-        query.subject = {
-          $regex: category,
-          $options: "i",
-        };
+          const endDate =
+            req.query.endDate;
+
+          // ================= DYNAMIC QUERY =================
+
+          const query = {};
+
+          // CATEGORY FILTER
+
+          if (category) {
+
+            query.subject = {
+              $regex: category,
+              $options: "i",
+            };
+          }
+
+          // SEARCH FILTER
+
+          if (search) {
+
+            query.tutorName = {
+              $regex: search,
+              $options: "i",
+            };
+          }
+
+          // DATE FILTER
+
+          if (
+            startDate &&
+            endDate
+          ) {
+
+            query.createdAt = {
+              $gte:
+                new Date(
+                  startDate
+                ),
+
+              $lte:
+                new Date(
+                  endDate
+                ),
+            };
+          }
+
+          // ================= FETCH DATA =================
+
+          const result =
+            await tutorsCollection
+              .find(query)
+              .sort({
+                createdAt: -1,
+              })
+              .toArray();
+
+          // ================= RESPONSE =================
+
+          res.send(result);
+
+        } catch (error) {
+
+          console.log(error);
+
+          res
+            .status(500)
+            .send({
+              success: false,
+              message:
+                "Failed to fetch tutors",
+            });
+        }
       }
-
-      const result =
-        await tutorsCollection
-          .find(query)
-          .toArray();
-
-      res.send(result);
-
-    } catch (error) {
-
-      console.log(error);
-
-      res
-        .status(500)
-        .send({
-          success: false,
-          message:
-            "Failed to fetch tutors",
-        });
-    }
-  }
-);
+    );
 
     // ==================================================
     // GET SINGLE TUTOR
     // ==================================================
 
-    app.get("/tutors", async (req, res) => {
+    app.get(
+      "/tutors/:id",
+      async (req, res) => {
 
-  try {
+        try {
 
-    const category =
-      req.query.category;
+          const id =
+            req.params.id;
 
-    const query = {};
+          let query;
 
-    if (category) {
+          // CHECK OBJECT ID
 
-      query.subject =
-        category;
-    }
+          if (
+            ObjectId.isValid(id)
+          ) {
 
-    const result =
-      await tutorsCollection
-        .find(query)
-        .toArray();
+            query = {
+              $or: [
+                {
+                  _id:
+                    new ObjectId(
+                      id
+                    ),
+                },
+                {
+                  _id: id,
+                },
+              ],
+            };
 
-    res.send(result);
+          } else {
 
-  } catch (error) {
+            query = {
+              _id: id,
+            };
+          }
 
-    console.log(error);
+          const result =
+            await tutorsCollection.findOne(
+              query
+            );
 
-    res.status(500).send({
-      success: false,
-      message:
-        "Failed to fetch tutors",
-    });
-  }
-});
+          if (!result) {
 
-    // ==================================================
-    // UPDATE TUTOR API
-    // ==================================================
+            return res
+              .status(404)
+              .send({
+                success: false,
+                message:
+                  "Tutor not found",
+              });
+          }
 
-app.get("/tutors", async (req, res) => {
+          res.send(result);
 
-  try {
+        } catch (error) {
 
-    const category =
-      req.query.category;
+          console.log(error);
 
-    const query = {};
-
-    if (category) {
-
-      query.subject =
-        category;
-    }
-
-    const result =
-      await tutorsCollection
-        .find(query)
-        .toArray();
-
-    res.send(result);
-
-  } catch (error) {
-
-    console.log(error);
-
-    res.status(500).send({
-      success: false,
-      message:
-        "Failed to fetch tutors",
-    });
-  }
-});
+          res
+            .status(500)
+            .send({
+              success: false,
+              message:
+                "Failed to fetch tutor",
+            });
+        }
+      }
+    );
 
     // ==================================================
     // DELETE TUTOR API
@@ -284,9 +330,8 @@ app.get("/tutors", async (req, res) => {
           }
 
           const query = {
-            _id: new ObjectId(
-              id
-            ),
+            _id:
+              new ObjectId(id),
           };
 
           const result =
@@ -562,8 +607,7 @@ app.get("/tutors", async (req, res) => {
             await bookingsCollection
               .find(query)
               .sort({
-                createdAt:
-                  -1,
+                createdAt: -1,
               })
               .toArray();
 
