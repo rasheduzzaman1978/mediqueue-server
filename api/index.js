@@ -21,8 +21,10 @@ const PORT =
 
 app.use(
   cors({
-    origin:
+    origin: [
       "http://localhost:3000",
+      "https://YOUR-FRONTEND.vercel.app"
+    ],
     credentials: true,
   })
 );
