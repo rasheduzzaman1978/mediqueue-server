@@ -303,6 +303,142 @@ async function run() {
     );
 
     // ==================================================
+// UPDATE TUTOR API
+// ==================================================
+
+app.patch(
+  "/tutors/:id",
+  async (req, res) => {
+
+    try {
+
+      const id =
+        req.params.id;
+
+      // CHECK VALID OBJECT ID
+
+      if (
+        !ObjectId.isValid(id)
+      ) {
+
+        return res
+          .status(400)
+          .send({
+            success: false,
+            message:
+              "Invalid Tutor ID",
+          });
+      }
+
+      // REQUEST BODY
+
+      const updatedData =
+        req.body;
+
+      // FILTER
+
+      const filter = {
+        _id:
+          new ObjectId(id),
+      };
+
+      // UPDATED DOCUMENT
+
+      const updatedDoc = {
+        $set: {
+
+          tutorName:
+            updatedData.tutorName,
+
+          photo:
+            updatedData.photo,
+
+          subject:
+            updatedData.subject,
+
+          availableDays:
+            updatedData.availableDays,
+
+          availableTime:
+            updatedData.availableTime,
+
+          hourlyFee:
+            parseInt(
+              updatedData.hourlyFee
+            ),
+
+          totalSlot:
+            parseInt(
+              updatedData.totalSlot
+            ),
+
+          sessionStartDate:
+            updatedData.sessionStartDate,
+
+          institution:
+            updatedData.institution,
+
+          experience:
+            updatedData.experience,
+
+          location:
+            updatedData.location,
+
+          teachingMode:
+            updatedData.teachingMode,
+        },
+      };
+
+      // UPDATE DATABASE
+
+      const result =
+        await tutorsCollection.updateOne(
+          filter,
+          updatedDoc
+        );
+
+      // NOT FOUND
+
+      if (
+        result.matchedCount ===
+        0
+      ) {
+
+        return res
+          .status(404)
+          .send({
+            success: false,
+            message:
+              "Tutor not found",
+          });
+      }
+
+      // SUCCESS RESPONSE
+
+      res.send({
+        success: true,
+        message:
+          "Tutor updated successfully",
+        modifiedCount:
+          result.modifiedCount,
+      });
+
+    } catch (error) {
+
+      console.log(error);
+
+      res
+        .status(500)
+        .send({
+          success: false,
+          message:
+            "Failed to update tutor",
+        });
+    }
+  }
+);
+
+    // ==================================================
     // DELETE TUTOR API
     // ==================================================
 
