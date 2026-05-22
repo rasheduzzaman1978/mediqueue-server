@@ -23,7 +23,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://YOUR-FRONTEND.vercel.app"
+      "https://mediqueue-client-snowy.vercel.app"
     ],
     credentials: true,
   })
@@ -54,7 +54,7 @@ async function run() {
 
   try {
 
-  
+  await client.connect();
 
     console.log(
       "Successfully connected to MongoDB!"
