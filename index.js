@@ -54,7 +54,7 @@ async function run() {
 
   try {
 
-  await client.connect();
+  // await client.connect();
 
     console.log(
       "Successfully connected to MongoDB!"
