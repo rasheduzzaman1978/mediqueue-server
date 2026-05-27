@@ -1,7 +1,5 @@
 const express = require("express");
-
 const cors = require("cors");
-
 const dotenv = require("dotenv");
 
 dotenv.config();
@@ -11,12 +9,12 @@ const {
   ServerApiVersion,
   ObjectId,
 } = require("mongodb");
+
 const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
 const app = express();
 
-const PORT =
-  process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 
 // ================= MIDDLEWARE =================
 
@@ -24,7 +22,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://mediqueue-client-snowy.vercel.app"
+      "https://mediqueue-client-snowy.vercel.app",
     ],
     credentials: true,
   })
@@ -34,77 +32,73 @@ app.use(express.json());
 
 // ================= MONGODB URI =================
 
-const uri =
-  process.env.MONGODB_URI;
+const uri = process.env.MONGODB_URI;
 
 // ================= MONGODB CLIENT =================
 
-const client =
-  new MongoClient(uri, {
-    serverApi: {
-      version:
-        ServerApiVersion.v1,
-      strict: true,
-      deprecationErrors: true,
-    },
-  });
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
 
-  const JWKS = createRemoteJWKSet(
-    new URL(process.env.JWKS_URI)
-  );
+const JWKS = createRemoteJWKSet(
+  new URL(process.env.JWKS_URI)
+);
 
-  const verifyToken = async (req, res, next) => {
-    const authHeader = req?.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({
-          message:
-            "Unauthorized",
-        });
-    }
+// ================= VERIFY TOKEN =================
 
-    const token = authHeader?.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({
-          message:
-            "Unauthorized",
-        });
-    }
+const verifyToken = async (req, res, next) => {
+  const authHeader = req?.headers.authorization;
 
-    try {
-      const {payload} = await jwtVerify(token, JWKS);
+  if (!authHeader) {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
+
+  const token = authHeader?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
+
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+
+    req.user = payload;
+
     console.log("Token Payload:", payload);
+
     next();
-    } catch (error) {
-      console.error("Token verification failed:", error);
-      return res.status(403).json({
-        message: "Forbidden",
-      });
-    }
-    };
+  } catch (error) {
+    console.error("Token verification failed:", error);
+
+    return res.status(403).json({
+      message: "Forbidden",
+    });
+  }
+};
 
 // ================= MAIN FUNCTION =================
 
 async function run() {
-
   try {
-
-  // await client.connect();
-
-    console.log(
-      "Successfully connected to MongoDB!"
-    );
+    console.log("Successfully connected to MongoDB!");
 
     // ================= DATABASE =================
 
-    const tutorsCollection =
-      client
-        .db("mediqueue")
-        .collection("tutors");
+    const tutorsCollection = client
+      .db("mediqueue")
+      .collection("tutors");
 
-    const bookingsCollection =
-      client
-        .db("mediqueue")
-        .collection("bookings");
+    const bookingsCollection = client
+      .db("mediqueue")
+      .collection("bookings");
 
     // ==================================================
     // ADD TUTOR API
@@ -112,54 +106,37 @@ async function run() {
 
     app.post(
       "/tutors",
+      verifyToken,
       async (req, res) => {
-
         try {
-
           const tutorData = {
-
             ...req.body,
 
-            hourlyFee:
-              parseInt(
-                req.body
-                  .hourlyFee
-              ),
+            creatorEmail: req.user.email,
 
-            totalSlot:
-              parseInt(
-                req.body
-                  .totalSlot
-              ),
+            hourlyFee: parseInt(req.body.hourlyFee),
 
-            createdAt:
-              new Date(),
+            totalSlot: parseInt(req.body.totalSlot),
+
+            createdAt: new Date(),
           };
 
-          const result =
-            await tutorsCollection.insertOne(
-              tutorData
-            );
+          const result = await tutorsCollection.insertOne(
+            tutorData
+          );
 
           res.send({
             success: true,
-            insertedId:
-              result.insertedId,
-            message:
-              "Tutor added successfully",
+            insertedId: result.insertedId,
+            message: "Tutor added successfully",
           });
-
         } catch (error) {
-
           console.log(error);
 
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to add tutor",
-            });
+          res.status(500).send({
+            success: false,
+            message: "Failed to add tutor",
+          });
         }
       }
     );
@@ -168,383 +145,59 @@ async function run() {
     // GET ALL TUTORS
     // ==================================================
 
-    app.get(
-      "/tutors",
-      async (req, res) => {
-
-        try {
-
-          // ================= QUERY PARAMS =================
-
-          const category =
-            req.query.category;
-
-          const search =
-            req.query.search;
-
-          const startDate =
-            req.query.startDate;
-
-          const endDate =
-            req.query.endDate;
-
-          // ================= DYNAMIC QUERY =================
-
-          const query = {};
-
-          // CATEGORY FILTER
-
-          if (category) {
-
-            query.subject = {
-              $regex: category,
-              $options: "i",
-            };
-          }
-
-          // SEARCH FILTER
-
-          if (search) {
-
-            query.tutorName = {
-              $regex: search,
-              $options: "i",
-            };
-          }
-
-          // DATE FILTER
-
-          if (
-            startDate &&
-            endDate
-          ) {
-
-            query.createdAt = {
-              $gte:
-                new Date(
-                  startDate
-                ),
-
-              $lte:
-                new Date(
-                  endDate
-                ),
-            };
-          }
-
-          // ================= FETCH DATA =================
-
-          const result =
-            await tutorsCollection
-              .find(query)
-              .sort({
-                createdAt: -1,
-              })
-              .toArray();
-
-          // ================= RESPONSE =================
-
-          res.send(result);
-
-        } catch (error) {
-
-          console.log(error);
-
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to fetch tutors",
-            });
-        }
-      }
-    );
-
-    // ==================================================
-    // GET SINGLE TUTOR middleware
-    // ==================================================
-
-    app.get(
-      "/tutors/:id",
-      verifyToken,
-      async (req, res) => {
-        try {
-
-          const id =
-            req.params.id;
-
-          let query;
-
-          // CHECK OBJECT ID
-
-          if (
-            ObjectId.isValid(id)
-          ) {
-
-            query = {
-              $or: [
-                {
-                  _id:
-                    new ObjectId(
-                      id
-                    ),
-                },
-                {
-                  _id: id,
-                },
-              ],
-            };
-
-          } else {
-
-            query = {
-              _id: id,
-            };
-          }
-
-          const result =
-            await tutorsCollection.findOne(
-              query
-            );
-
-          if (!result) {
-
-            return res
-              .status(404)
-              .send({
-                success: false,
-                message:
-                  "Tutor not found",
-              });
-          }
-
-          res.send(result);
-
-        } catch (error) {
-
-          console.log(error);
-
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to fetch tutor",
-            });
-        }
-      }
-    );
-
-    // ==================================================
-// UPDATE TUTOR API
-// ==================================================
-
-app.patch(
-  "/tutors/:id",
-  async (req, res) => {
-
-    try {
-
-      const id =
-        req.params.id;
-
-      // CHECK VALID OBJECT ID
-
-      if (
-        !ObjectId.isValid(id)
-      ) {
-
-        return res
-          .status(400)
-          .send({
-            success: false,
-            message:
-              "Invalid Tutor ID",
-          });
-      }
-
-      // REQUEST BODY
-
-      const updatedData =
-        req.body;
-
-      // FILTER
-
-      const filter = {
-        _id:
-          new ObjectId(id),
-      };
-
-      // UPDATED DOCUMENT
-
-      const updatedDoc = {
-        $set: {
-
-          tutorName:
-            updatedData.tutorName,
-
-          photo:
-            updatedData.photo,
-
-          subject:
-            updatedData.subject,
-
-          availableDays:
-            updatedData.availableDays,
-
-          availableTime:
-            updatedData.availableTime,
-
-          hourlyFee:
-            parseInt(
-              updatedData.hourlyFee
-            ),
-
-          totalSlot:
-            parseInt(
-              updatedData.totalSlot
-            ),
-
-          sessionStartDate:
-            updatedData.sessionStartDate,
-
-          institution:
-            updatedData.institution,
-
-          experience:
-            updatedData.experience,
-
-          location:
-            updatedData.location,
-
-          teachingMode:
-            updatedData.teachingMode,
-        },
-      };
-
-      // UPDATE DATABASE
-
-      const result =
-        await tutorsCollection.updateOne(
-          filter,
-          updatedDoc
-        );
-
-      // NOT FOUND
-
-      if (
-        result.matchedCount ===
-        0
-      ) {
-
-        return res
-          .status(404)
-          .send({
-            success: false,
-            message:
-              "Tutor not found",
-          });
-      }
-
-      // SUCCESS RESPONSE
-
-      res.send({
-        success: true,
-        message:
-          "Tutor updated successfully",
-        modifiedCount:
-          result.modifiedCount,
-      });
-
-    } catch (error) {
-
-      console.log(error);
-
-      res
-        .status(500)
-        .send({
-          success: false,
-          message:
-            "Failed to update tutor",
-        });
-    }
-  }
-);
-
-    // ==================================================
-    // DELETE TUTOR API
-    // ==================================================
-
-    app.delete(
-      "/tutors/:id",
-      async (req, res) => {
-
-        try {
-
-          const id =
-            req.params.id;
-
-          if (
-            !ObjectId.isValid(id)
-          ) {
-
-            return res
-              .status(400)
-              .send({
-                success:
-                  false,
-                message:
-                  "Invalid Tutor ID",
-              });
-          }
-
-          const query = {
-            _id:
-              new ObjectId(id),
+    app.get("/tutors", async (req, res) => {
+      try {
+        const category = req.query.category;
+        const search = req.query.search;
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+
+        const query = {};
+
+        // CATEGORY FILTER
+
+        if (category) {
+          query.subject = {
+            $regex: category,
+            $options: "i",
           };
-
-          const result =
-            await tutorsCollection.deleteOne(
-              query
-            );
-
-          if (
-            result.deletedCount ===
-            0
-          ) {
-
-            return res
-              .status(404)
-              .send({
-                success:
-                  false,
-                message:
-                  "Tutor not found",
-              });
-          }
-
-          res.send({
-            success: true,
-            message:
-              "Tutor deleted successfully",
-            result,
-          });
-
-        } catch (error) {
-
-          console.log(error);
-
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to delete tutor",
-            });
         }
+
+        // SEARCH FILTER
+
+        if (search) {
+          query.tutorName = {
+            $regex: search,
+            $options: "i",
+          };
+        }
+
+        // DATE FILTER
+
+        if (startDate && endDate) {
+          query.createdAt = {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate),
+          };
+        }
+
+        const result = await tutorsCollection
+          .find(query)
+          .sort({
+            createdAt: -1,
+          })
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to fetch tutors",
+        });
       }
-    );
+    });
 
     // ==================================================
     // GET MY TUTORS API
@@ -552,42 +205,246 @@ app.patch(
 
     app.get(
       "/my-tutors",
+      verifyToken,
       async (req, res) => {
-
         try {
+          const email = req.user.email;
 
-          const email =
-            req.query.email;
+          const result = await tutorsCollection
+            .find({
+              creatorEmail: email,
+            })
+            .sort({
+              createdAt: -1,
+            })
+            .toArray();
 
-          const query = {};
+          res.send(result);
+        } catch (error) {
+          console.log(error);
 
-          if (email) {
+          res.status(500).send({
+            success: false,
+            message: "Failed to fetch tutors",
+          });
+        }
+      }
+    );
 
-            query.creatorEmail =
-              email;
+    // ==================================================
+    // GET SINGLE TUTOR
+    // ==================================================
+
+    app.get(
+      "/tutors/:id",
+      verifyToken,
+      async (req, res) => {
+        try {
+          const id = req.params.id;
+
+          let query;
+
+          if (ObjectId.isValid(id)) {
+            query = {
+              $or: [
+                {
+                  _id: new ObjectId(id),
+                },
+                {
+                  _id: id,
+                },
+              ],
+            };
+          } else {
+            query = {
+              _id: id,
+            };
+          }
+
+          const result = await tutorsCollection.findOne(
+            query
+          );
+
+          if (!result) {
+            return res.status(404).send({
+              success: false,
+              message: "Tutor not found",
+            });
+          }
+
+          res.send(result);
+        } catch (error) {
+          console.log(error);
+
+          res.status(500).send({
+            success: false,
+            message: "Failed to fetch tutor",
+          });
+        }
+      }
+    );
+
+    // ==================================================
+    // UPDATE TUTOR API
+    // ==================================================
+
+    app.patch(
+      "/tutors/:id",
+      verifyToken,
+      async (req, res) => {
+        try {
+          const id = req.params.id;
+
+          if (!ObjectId.isValid(id)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid Tutor ID",
+            });
+          }
+
+          const tutor = await tutorsCollection.findOne({
+            _id: new ObjectId(id),
+          });
+
+          if (!tutor) {
+            return res.status(404).send({
+              success: false,
+              message: "Tutor not found",
+            });
+          }
+
+         const userEmail =
+            req.user.email ||
+            req.user.user?.email;
+
+          console.log("Tutor Email:", tutor.creatorEmail);
+
+          console.log("User Email:", userEmail);
+
+          if (
+            tutor.creatorEmail?.trim().toLowerCase() !==
+            userEmail?.trim().toLowerCase()
+          ) {
+
+            return res.status(403).send({
+              success: false,
+              message: "Forbidden Access",
+            });
+          }
+
+          const updatedData = req.body;
+
+          const filter = {
+            _id: new ObjectId(id),
+          };
+
+          const updatedDoc = {
+            $set: {
+              tutorName: updatedData.tutorName,
+              photo: updatedData.photo,
+              subject: updatedData.subject,
+              availableDays:
+                updatedData.availableDays,
+              availableTime:
+                updatedData.availableTime,
+              hourlyFee: parseInt(
+                updatedData.hourlyFee
+              ),
+              totalSlot: parseInt(
+                updatedData.totalSlot
+              ),
+              sessionStartDate:
+                updatedData.sessionStartDate,
+              institution:
+                updatedData.institution,
+              experience:
+                updatedData.experience,
+              location: updatedData.location,
+              teachingMode:
+                updatedData.teachingMode,
+            },
+          };
+
+          const result =
+            await tutorsCollection.updateOne(
+              filter,
+              updatedDoc
+            );
+
+          res.send({
+            success: true,
+            message:
+              "Tutor updated successfully",
+            modifiedCount:
+              result.modifiedCount,
+          });
+        } catch (error) {
+          console.log(error);
+
+          res.status(500).send({
+            success: false,
+            message:
+              "Failed to update tutor",
+          });
+        }
+      }
+    );
+
+    // ==================================================
+    // DELETE TUTOR API
+    // ==================================================
+
+    app.delete(
+      "/tutors/:id",
+      verifyToken,
+      async (req, res) => {
+        try {
+          const id = req.params.id;
+
+          if (!ObjectId.isValid(id)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid Tutor ID",
+            });
+          }
+
+          const tutor = await tutorsCollection.findOne({
+            _id: new ObjectId(id),
+          });
+
+          if (!tutor) {
+            return res.status(404).send({
+              success: false,
+              message: "Tutor not found",
+            });
+          }
+
+          if (tutor.creatorEmail !== req.user.email) {
+            return res.status(403).send({
+              success: false,
+              message: "Forbidden Access",
+            });
           }
 
           const result =
-            await tutorsCollection
-              .find(query)
-              .sort({
-                _id: -1,
-              })
-              .toArray();
+            await tutorsCollection.deleteOne({
+              _id: new ObjectId(id),
+            });
 
-          res.send(result);
-
+          res.send({
+            success: true,
+            message:
+              "Tutor deleted successfully",
+            result,
+          });
         } catch (error) {
-
           console.log(error);
 
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to fetch tutors",
-            });
+          res.status(500).send({
+            success: false,
+            message:
+              "Failed to delete tutor",
+          });
         }
       }
     );
@@ -598,116 +455,68 @@ app.patch(
 
     app.post(
       "/bookings",
+      verifyToken,
       async (req, res) => {
-
         try {
+          const bookingData = req.body;
 
-          const bookingData =
-            req.body;
+          const tutorId = bookingData.tutorId;
 
-          const tutorId =
-            bookingData.tutorId;
-
-          if (
-            !ObjectId.isValid(
-              tutorId
-            )
-          ) {
-
-            return res
-              .status(400)
-              .send({
-                success:
-                  false,
-                message:
-                  "Invalid Tutor ID",
-              });
+          if (!ObjectId.isValid(tutorId)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid Tutor ID",
+            });
           }
 
           const tutor =
-            await tutorsCollection.findOne(
-              {
-                _id:
-                  new ObjectId(
-                    tutorId
-                  ),
-              }
-            );
+            await tutorsCollection.findOne({
+              _id: new ObjectId(tutorId),
+            });
 
           if (!tutor) {
-
-            return res
-              .status(404)
-              .send({
-                success:
-                  false,
-                message:
-                  "Tutor not found",
-              });
+            return res.status(404).send({
+              success: false,
+              message: "Tutor not found",
+            });
           }
 
-          if (
-            parseInt(
-              tutor.totalSlot
-            ) <= 0
-          ) {
-
+          if (parseInt(tutor.totalSlot) <= 0) {
             return res.send({
-              success:
-                false,
-              message:
-                "No available slots",
+              success: false,
+              message: "No available slots",
             });
           }
 
           const alreadyBooked =
-            await bookingsCollection.findOne(
-              {
-                tutorName:
-                  bookingData.tutorName,
+            await bookingsCollection.findOne({
+              tutorName:
+                bookingData.tutorName,
+              studentEmail:
+                bookingData.studentEmail,
+              bookingStatus: "confirmed",
+            });
 
-                studentEmail:
-                  bookingData.studentEmail,
-
-                bookingStatus:
-                  "confirmed",
-              }
-            );
-
-          if (
-            alreadyBooked
-          ) {
-
+          if (alreadyBooked) {
             return res.send({
-              success:
-                false,
+              success: false,
               message:
                 "You already booked this tutor",
             });
           }
 
           const newBooking = {
-
             studentName:
               bookingData.studentName,
-
-            phone:
-              bookingData.phone,
-
+            phone: bookingData.phone,
             tutorId:
               bookingData.tutorId,
-
             tutorName:
               bookingData.tutorName,
-
             studentEmail:
               bookingData.studentEmail,
-
-            bookingStatus:
-              "confirmed",
-
-            createdAt:
-              new Date(),
+            bookingStatus: "confirmed",
+            createdAt: new Date(),
           };
 
           const bookingResult =
@@ -717,37 +526,28 @@ app.patch(
 
           await tutorsCollection.updateOne(
             {
-              _id:
-                new ObjectId(
-                  tutorId
-                ),
+              _id: new ObjectId(tutorId),
             },
             {
               $inc: {
-                totalSlot:
-                  -1,
+                totalSlot: -1,
               },
             }
           );
 
           res.send({
             success: true,
-            message:
-              "Booking successful",
+            message: "Booking successful",
             bookingResult,
           });
-
         } catch (error) {
-
           console.log(error);
 
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to create booking",
-            });
+          res.status(500).send({
+            success: false,
+            message:
+              "Failed to create booking",
+          });
         }
       }
     );
@@ -758,19 +558,15 @@ app.patch(
 
     app.get(
       "/bookings",
+      verifyToken,
       async (req, res) => {
-
         try {
-
-          const email =
-            req.query.email;
+          const email = req.user.email;
 
           const query = {};
 
           if (email) {
-
-            query.studentEmail =
-              email;
+            query.studentEmail = email;
           }
 
           const result =
@@ -782,18 +578,14 @@ app.patch(
               .toArray();
 
           res.send(result);
-
         } catch (error) {
-
           console.log(error);
 
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to fetch bookings",
-            });
+          res.status(500).send({
+            success: false,
+            message:
+              "Failed to fetch bookings",
+          });
         }
       }
     );
@@ -804,83 +596,55 @@ app.patch(
 
     app.patch(
       "/bookings/:id",
+      verifyToken,
       async (req, res) => {
-
         try {
+          const id = req.params.id;
 
-          const id =
-            req.params.id;
-
-          if (
-            !ObjectId.isValid(id)
-          ) {
-
-            return res
-              .status(400)
-              .send({
-                success:
-                  false,
-                message:
-                  "Invalid Booking ID",
-              });
+          if (!ObjectId.isValid(id)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid Booking ID",
+            });
           }
 
           const booking =
-            await bookingsCollection.findOne(
-              {
-                _id:
-                  new ObjectId(
-                    id
-                  ),
-              }
-            );
+            await bookingsCollection.findOne({
+              _id: new ObjectId(id),
+            });
 
           if (!booking) {
-
-            return res
-              .status(404)
-              .send({
-                success:
-                  false,
-                message:
-                  "Booking not found",
-              });
+            return res.status(404).send({
+              success: false,
+              message: "Booking not found",
+            });
           }
 
           const result =
             await bookingsCollection.updateOne(
               {
-                _id:
-                  new ObjectId(
-                    id
-                  ),
+                _id: new ObjectId(id),
               },
               {
                 $set: {
-                  bookingStatus:
-                    "cancelled",
+                  bookingStatus: "cancelled",
                 },
               }
             );
 
           if (
             booking.tutorId &&
-            ObjectId.isValid(
-              booking.tutorId
-            )
+            ObjectId.isValid(booking.tutorId)
           ) {
-
             await tutorsCollection.updateOne(
               {
-                _id:
-                  new ObjectId(
-                    booking.tutorId
-                  ),
+                _id: new ObjectId(
+                  booking.tutorId
+                ),
               },
               {
                 $inc: {
-                  totalSlot:
-                    1,
+                  totalSlot: 1,
                 },
               }
             );
@@ -892,18 +656,14 @@ app.patch(
               "Booking cancelled successfully",
             result,
           });
-
         } catch (error) {
-
           console.log(error);
 
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to cancel booking",
-            });
+          res.status(500).send({
+            success: false,
+            message:
+              "Failed to cancel booking",
+          });
         }
       }
     );
@@ -915,9 +675,7 @@ app.patch(
     app.get(
       "/featured-tutors",
       async (req, res) => {
-
         try {
-
           const result =
             await tutorsCollection
               .find()
@@ -925,18 +683,14 @@ app.patch(
               .toArray();
 
           res.send(result);
-
         } catch (error) {
-
           console.log(error);
 
-          res
-            .status(500)
-            .send({
-              success: false,
-              message:
-                "Failed to fetch featured tutors",
-            });
+          res.status(500).send({
+            success: false,
+            message:
+              "Failed to fetch featured tutors",
+          });
         }
       }
     );
@@ -946,16 +700,12 @@ app.patch(
     // ==================================================
 
     app.get("/", (req, res) => {
-
-      res.send(
-        "Mediqueue Server Running"
-      );
+      res.send("Mediqueue Server Running");
     });
 
     console.log(
       "MongoDB Connected Successfully"
     );
-
   } finally {
   }
 }
@@ -964,17 +714,8 @@ run().catch(console.dir);
 
 // ================= SERVER =================
 
-// app.listen(PORT, () => {
-
-//   console.log(
-//     `Server running on port ${PORT}`
-//   );
-// });
-
 if (process.env.NODE_ENV !== "production") {
-
   app.listen(PORT, () => {
-
     console.log(
       `Server running on port ${PORT}`
     );
