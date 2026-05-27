@@ -175,11 +175,27 @@ async function run() {
         // DATE FILTER
 
         if (startDate && endDate) {
-          query.createdAt = {
-            $gte: new Date(startDate),
-            $lte: new Date(endDate),
-          };
-        }
+
+        const start =
+          new Date(startDate);
+
+        const end =
+          new Date(endDate);
+
+        // INCLUDE FULL END DAY
+
+        end.setHours(
+          23,
+          59,
+          59,
+          999
+        );
+
+        query.createdAt = {
+          $gte: start,
+          $lte: end,
+        };
+      }
 
         const result = await tutorsCollection
           .find(query)
