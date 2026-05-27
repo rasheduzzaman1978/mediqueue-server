@@ -11,6 +11,7 @@ const {
   ServerApiVersion,
   ObjectId,
 } = require("mongodb");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
 const app = express();
 
@@ -47,6 +48,39 @@ const client =
       deprecationErrors: true,
     },
   });
+
+  const JWKS = createRemoteJWKSet(
+    new URL(process.env.JWKS_URI)
+  );
+
+  const verifyToken = async (req, res, next) => {
+    const authHeader = req?.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({
+          message:
+            "Unauthorized",
+        });
+    }
+
+    const token = authHeader?.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({
+          message:
+            "Unauthorized",
+        });
+    }
+
+    try {
+      const {payload} = await jwtVerify(token, JWKS);
+    console.log("Token Payload:", payload);
+    next();
+    } catch (error) {
+      console.error("Token verification failed:", error);
+      return res.status(403).json({
+        message: "Forbidden",
+      });
+    }
+    };
 
 // ================= MAIN FUNCTION =================
 
@@ -228,13 +262,13 @@ async function run() {
     );
 
     // ==================================================
-    // GET SINGLE TUTOR
+    // GET SINGLE TUTOR middleware
     // ==================================================
 
     app.get(
       "/tutors/:id",
+      verifyToken,
       async (req, res) => {
-
         try {
 
           const id =
