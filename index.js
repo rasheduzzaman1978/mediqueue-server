@@ -88,6 +88,7 @@ const verifyToken = async (req, res, next) => {
 
 async function run() {
   try {
+    await client.connect();
     console.log("Successfully connected to MongoDB!");
 
     // ================= DATABASE =================
