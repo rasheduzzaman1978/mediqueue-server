@@ -88,7 +88,7 @@ const verifyToken = async (req, res, next) => {
 
 async function run() {
   try {
-    // await client.connect();
+    
     console.log("Successfully connected to MongoDB!");
 
     // ================= DATABASE =================
@@ -731,12 +731,12 @@ run().catch(console.dir);
 
 // ================= SERVER =================
 
-if (process.env.NODE_ENV !== "production") {
+
   app.listen(PORT, () => {
     console.log(
       `Server running on port ${PORT}`
     );
   });
-}
+
 
 module.exports = app;
